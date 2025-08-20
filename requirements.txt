@@ -3,6 +3,6 @@ pydantic>=2.0
 uvicorn[standard]
 python-dotenv
 # Optional Oracle driver (install only if you use the Oracle backend):
-# cx_Oracle
+# python-oracledb  # Optional: install if using Oracle backend
 pytest
 httpx

@@ -99,9 +99,9 @@ check_python_packages() {
     
     # Check Oracle packages if using Oracle backend
     if [ "$PIPELINE_BACKEND" = "oracle" ]; then
-        python3.13 -c "import cx_Oracle" 2>/dev/null || {
-            print_error "cx_Oracle package not found (required for Oracle backend)!"
-            print_status "Please install with: pip install cx_Oracle"
+        python3.13 -c "import oracledb" 2>/dev/null || {
+            print_error "python-oracledb package not found (required for Oracle backend)!"
+            print_status "Please install with: pip install python-oracledb"
             exit 1
         }
     fi

@@ -185,10 +185,11 @@ class OraclePipelineRepository(PipelineInfoRepository):
             raise ValueError("Missing Oracle connection parameters: ORACLE_DSN, ORACLE_USER, ORACLE_PASSWORD")
         
         try:
-            import cx_Oracle
-            self.cx_Oracle = cx_Oracle
+            import oracledb
+            # Use Thin mode by default; can be upgraded transparently if Oracle Client libs are present
+            self._driver = oracledb
         except ImportError:
-            raise ImportError("cx_Oracle package required for Oracle backend. Install with: pip install cx_Oracle")
+            raise ImportError("python-oracledb package required for Oracle backend. Install with: pip install python-oracledb")
 
     def _build_where(self, start_utc, end_utc, min_rowcount, max_rowcount, pipeline_name, script_name, pipeline_type, environment):
         where = []
@@ -248,7 +249,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
             params["max_row"] = offset + limit
             params["min_row"] = offset
 
-        conn = self.cx_Oracle.connect(self.user, self.password, self.dsn)
+    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, params)
@@ -264,7 +265,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
         if where:
             sql += " WHERE " + " AND ".join(where)
             
-        conn = self.cx_Oracle.connect(self.user, self.password, self.dsn)
+    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, params)
@@ -288,7 +289,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
             ORDER BY last_run DESC
         """
         
-        conn = self.cx_Oracle.connect(self.user, self.password, self.dsn)
+    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql)
@@ -327,7 +328,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
         bind_list = ",".join(bind_placeholders)
         sql = f"INSERT INTO {self.table} ({col_list}) VALUES ({bind_list})"
 
-        conn = self.cx_Oracle.connect(self.user, self.password, self.dsn)
+    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, binds)

@@ -38,7 +38,7 @@ def main():
     try:
         import oracledb
     except Exception:
-        print("python-oracledb (or cx_Oracle) is required. Install with: pip install python-oracledb", file=sys.stderr)
+    print("python-oracledb is required (cx_Oracle deprecated). Install with: pip install python-oracledb", file=sys.stderr)
         sys.exit(2)
 
     sql_text = load_sql(sql_path)

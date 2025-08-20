@@ -24,7 +24,7 @@ Set all of:
 ## Usage
 
 ```bash
-pip install fastapi uvicorn pydantic cx_Oracle
+pip install fastapi uvicorn pydantic python-oracledb
 uvicorn main:app --reload
 ```
 
@@ -109,7 +109,7 @@ Once added, these secrets will be available to Actions jobs as environment varia
 
 ## Oracle datetime binding (recommended)
 
-When using the Oracle backend prefer binding Python `datetime.datetime` objects directly instead of converting them to strings. Modern Oracle drivers (cx_Oracle or `python-oracledb`) will convert Python datetimes to native `TIMESTAMP` / `TIMESTAMP WITH TIME ZONE` values which enables correct range queries, indexing and partition pruning.
+When using the Oracle backend prefer binding Python `datetime.datetime` objects directly instead of converting them to strings. The modern unified Oracle driver (`python-oracledb`, successor of cx_Oracle) will convert Python datetimes to native `TIMESTAMP` / `TIMESTAMP WITH TIME ZONE` values which enables correct range queries, indexing and partition pruning.
 
 Short example using `python-oracledb`:
 
