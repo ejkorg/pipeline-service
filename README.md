@@ -1,117 +1,108 @@
-# Pipeline Info FastAPI Service (Pluggable Backend)
+# Pipeline Service
 
-FastAPI service for pipeline/job info, with simple backend switching (`.jsonl` file or Oracle DB).
+Production-grade FastAPI application for storing and serving pipeline run metadata. Supports pluggable storage backends (JSONL for lightweight/local use, Oracle for production) using a clean repository abstraction.
 
-## Backend Selection
-
-Set environment variable:
-
-- `PIPELINE_BACKEND=jsonl` (default, reads from .jsonl file)
-- `PIPELINE_BACKEND=oracle` (reads from Oracle database table)
-
-### For `.jsonl`:
-
-- Set `PIPELINE_JSONL_PATH` to your file (default: `benchmark.jsonl`)
-
-### For Oracle:
-
-Set all of:
-- `ORACLE_DSN` (e.g. `host:port/service`)
-- `ORACLE_USER`
-- `ORACLE_PASSWORD`
-- `ORACLE_TABLE` (default: `PIPELINE_RUNS`)
-
-## Usage
+## Quick Start
+- Install dependencies and run the API:
 
 ```bash
-pip install fastapi uvicorn pydantic python-oracledb
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+Open `http://localhost:8000/docs` for interactive API docs.
+
+## Features
+- Multi-backend storage: JSONL file or Oracle (`python-oracledb`).
+- Rich filtering (time range, row counts, pipeline/script/type/env).
+- Pagination with limit/offset and full export toggle.
+- Aggregated summaries per pipeline.
+- Ingestion via POST (validates with Pydantic v2 models).
+- Health endpoint for orchestration.
+
+## Configuration
+Set environment variables to select and configure the backend.
+
+- `PIPELINE_BACKEND`: `jsonl` (default) or `oracle`.
+
+When `jsonl` backend:
+- `PIPELINE_JSONL_PATH`: path to JSON Lines file (default: `pipeline_data.jsonl`).
+
+When `oracle` backend:
+- `ORACLE_DSN`: e.g., `host:port/service`.
+- `ORACLE_USER`: database username.
+- `ORACLE_PASSWORD`: database password.
+- `ORACLE_TABLE`: table name (default `PIPELINE_RUNS`).
+- `ORACLE_COLUMN_MAP`: optional JSON mapping of model field -> DB column.
+
+Example:
+```bash
+export PIPELINE_BACKEND=oracle
+export ORACLE_DSN=host:1521/ORCLPDB1
+export ORACLE_USER=app
+export ORACLE_PASSWORD=secret
+export ORACLE_TABLE=PIPELINE_RUNS
+export ORACLE_COLUMN_MAP='{"start_utc":"START_UTC","rowcount":"ROW_COUNT"}'
 uvicorn main:app --reload
 ```
 
-See `/docs` for endpoint documentation.
+## Data Model
+Defined in `models.py`.
 
-## Extending
+- `PipelineInfo`: single run with timestamps, metrics, artifacts, identifiers, and classification fields (`pipeline_name`, `script_name`, `pipeline_type`, `environment`).
+- `PipelineSummary`: aggregated view per pipeline signature with totals, last run, averages.
+- Response wrappers: `PipelineInfoResponse`, `PipelineListResponse`.
 
-To add more data sources, simply implement another repository class in `repository.py` and update `get_repository`.
+## Endpoints
+- `GET /pipelines`: list `PipelineSummary` objects (aggregated stats).
+- `GET /get_pipeline_info`: filtered pipeline runs with pagination.
+	- Query params:
+		- `start_utc`, `end_utc` (ISO datetimes)
+		- `min_rowcount`, `max_rowcount` (ints)
+		- `pipeline_name`, `script_name`, `pipeline_type`, `environment`
+		- `limit` (1–1000), `offset` (>=0)
+		- `all_data` (bool) — if true, ignores pagination
+- `POST /pipelines`: insert a run (body must match `PipelineInfo`).
+- `GET /health`: health check.
 
-## Inserting records (POST endpoint)
-
-The service now exposes a POST endpoint to insert pipeline records:
-
-- POST /pipelines
-	- Body: JSON matching the `PipelineInfo` model (see `/openapi.json` or `/docs` for fields).
-	- Returns: 201 Created with the validated record in the response body.
-
-Example:
-
+Example POST:
 ```bash
 curl -X POST http://127.0.0.1:8000/pipelines \
 	-H "Content-Type: application/json" \
 	-d @sample_record.json
 ```
 
-When using the default `jsonl` backend the POST will append a JSON line to the file configured by `PIPELINE_JSONL_PATH`.
+## Storage Backends
+### JSONL (default)
+- Appends newline-delimited JSON to `PIPELINE_JSONL_PATH`.
+- All queries read file and filter in-memory (suitable for small files; rotate if large).
 
-## Oracle column mapping
+### Oracle (python-oracledb)
+- Uses `python-oracledb` Thin mode by default.
+- Parameterized queries prevent SQL injection; dynamic WHERE assembly based on provided filters.
+- ROWNUM-based pagination; can be upgraded to keyset pagination.
+- Optional `ORACLE_COLUMN_MAP` lets you adapt to existing column names.
 
-If your Oracle table uses column names that differ from the model field names, set the `ORACLE_COLUMN_MAP` environment
-variable to a JSON mapping of model_field -> column_name. For example:
+See `sql/create_pipeline_runs.sql` for a reference table definition and indexes.
 
+## Development & Testing
+- Run tests:
 ```bash
-export ORACLE_COLUMN_MAP='{"start_utc":"START_UTC","rowcount":"ROW_COUNT","pipeline_name":"PIPE_NAME"}'
-```
-
-The mapping is used for WHERE clauses, SELECT aliases (when returning rows from Oracle) and INSERT column names. If not
-provided the repository will assume the DB column names match the model field names.
-
-## Quick install & run
-
-Install dependencies from the provided `requirements.txt` and run the app with uvicorn:
-
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-## Tests & CI
-
-- Run unit and integration tests locally:
-
-```bash
-pip install -r requirements.txt
 pytest -q
 ```
 
-- CI (GitHub Actions) will:
-	- Run unit tests on push/PR for Python 3.11 and 3.12.
-	- Cache pip downloads for faster runs.
-	- Run a linter (`ruff`) as part of the job.
-	- Run integration tests only when the branch is `integration` or when a PR has the `run-integration` label.
+- Useful commands:
+```bash
+uvicorn main:app --reload --port 8000
+pip install python-oracledb
+```
 
-- CI secrets: For Oracle integration tests provide `ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_TABLE`, and optional `ORACLE_COLUMN_MAP` as GitHub Secrets (Settings → Secrets) — do not commit credentials to the repo.
+### Notes for Oracle Testing
+- Provide env vars (`ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_TABLE`).
+- Consider using Oracle XE for local tests or mock the repository for unit tests.
 
-## CI secrets (explicit names)
-
-If you plan to run Oracle integration tests in CI, add the following GitHub repository secrets (Settings → Secrets → Actions):
-
-- ORACLE_DSN (example: host:1521/ORCLPDB1)
-- ORACLE_USER
-- ORACLE_PASSWORD
-- ORACLE_TABLE (default: PIPELINE_RUNS)
-- ORACLE_COLUMN_MAP (optional JSON mapping, e.g. '{"start_utc":"START_UTC","rowcount":"ROW_COUNT"}')
-
-Optional pipeline/runtime config you may want to set as secrets or repository variables:
-
-- PIPELINE_JSONL_PATH (if you want CI to write/read a specific path)
-- PIPELINE_BACKEND (set to `oracle` in CI to exercise Oracle-backed flows)
-
-Once added, these secrets will be available to Actions jobs as environment variables; the workflow can consume them automatically. Do not store credentials in the repository.
-
-## Oracle datetime binding (recommended)
-
-When using the Oracle backend prefer binding Python `datetime.datetime` objects directly instead of converting them to strings. The modern unified Oracle driver (`python-oracledb`, successor of cx_Oracle) will convert Python datetimes to native `TIMESTAMP` / `TIMESTAMP WITH TIME ZONE` values which enables correct range queries, indexing and partition pruning.
-
-Short example using `python-oracledb`:
+## Oracle Datetime Binding (Recommended)
+Bind Python `datetime` objects directly; `python-oracledb` converts them to native Oracle `TIMESTAMP`/`TIMESTAMP WITH TIME ZONE` types enabling correct range queries and indexing.
 
 ```python
 import oracledb
@@ -119,17 +110,26 @@ from datetime import timezone
 
 conn = oracledb.connect(user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN)
 sql = "INSERT INTO pipeline_runs (start_utc, end_utc, rowcount, date_code) VALUES (:start_utc, :end_utc, :rowcount, :date_code)"
-
 params = {
 	"start_utc": my_record.start_utc.astimezone(timezone.utc),
 	"end_utc": my_record.end_utc.astimezone(timezone.utc),
 	"rowcount": my_record.rowcount,
 	"date_code": my_record.date_code,
 }
-
 with conn.cursor() as cur:
 	cur.execute(sql, params)
 	conn.commit()
 ```
 
-In this repo the Oracle repository now preserves Python datetimes when inserting so they are stored as native TIMESTAMP types (see `repository.py`). Continue to serialize datetimes to ISO strings for JSON/JSONL output.
+## Extending the Project
+- Add a new backend: subclass `PipelineInfoRepository` in `repository.py` and implement the four methods.
+- Add fields: extend `PipelineInfo`; ensure DB schema/column map updated accordingly.
+- Add endpoints: keep validation in FastAPI and business/data access in the repo layer.
+
+## Operations
+- Configure via env vars; never commit secrets.
+- Monitor via logs; consider metrics/tracing for production.
+- Health probe at `/health` for container orchestration.
+
+## Additional Documentation
+- See `STUDY_GUIDE.md` for a comprehensive deep-dive: architecture, testing, security, scaling, runbook, and roadmap.
