@@ -1,21 +1,33 @@
-#!/bin/bash
+#!/bin/# Configuration
+DEFAULT_HOST="127.0.0.1"  # For NGINX proxy setup
+DEFAULT_PORT="8001"       # Matches NGINX upstream pipeline-service port
+DEFAULT_BACKEND="jsonl"
+DEFAULT_JSONL_PATH="/apps/exensio_data/reference_data/benchmark/benchmark.jsonl"
 
-# Pipeline Info API Runner Script
+# CORS Configuration (for FastAPI)
+DEFAULT_CORS_ORIGINS="http://localhost:3000,http://localhost:5173"
+DEFAULT_CORS_ALLOW_ALL="false"ipeline Info API Runner Script
 # FastAPI application startup script
 
 set -e  # Exit on any error
 
 # Configuration
-DEFAULT_HOST="10.253.112.87"
-DEFAULT_PORT="8001"
+DEFAULT_HOST="127.0.0.1"  # Changed from 10.253.112.87 for NGINX proxy setup
+DEFAULT_PORT="8001"       # Changed from 8000 to 8001 since 8000 is occupied
 DEFAULT_BACKEND="jsonl"
 DEFAULT_JSONL_PATH="/apps/exensio_data/reference_data/benchmark/benchmark.jsonl"
+
+# CORS Configuration (for FastAPI)
+DEFAULT_CORS_ORIGINS="http://localhost:3000,http://localhost:5173,http://localhost:8080,http://usaz15ls088:8080"
+DEFAULT_CORS_ALLOW_ALL="false"
 
 # Get configuration from environment or use defaults
 HOST=${HOST:-$DEFAULT_HOST}
 PORT=${PORT:-$DEFAULT_PORT}
 PIPELINE_BACKEND=${PIPELINE_BACKEND:-$DEFAULT_BACKEND}
 PIPELINE_JSONL_PATH=${PIPELINE_JSONL_PATH:-$DEFAULT_JSONL_PATH}
+CORS_ORIGINS=${CORS_ORIGINS:-$DEFAULT_CORS_ORIGINS}
+CORS_ALLOW_ALL=${CORS_ALLOW_ALL:-$DEFAULT_CORS_ALLOW_ALL}
 
 # Colors for output
 RED='\033[0;31m'
@@ -135,6 +147,8 @@ start_app() {
     echo "  Backend: $PIPELINE_BACKEND"
     echo "  Host: $HOST"
     echo "  Port: $PORT"
+    echo "  CORS Origins: $CORS_ORIGINS"
+    echo "  CORS Allow All: $CORS_ALLOW_ALL"
     
     if [ "$PIPELINE_BACKEND" = "jsonl" ]; then
         echo "  JSONL Path: $PIPELINE_JSONL_PATH"
@@ -145,10 +159,16 @@ start_app() {
     fi
     
     echo ""
-    print_status "API will be available at:"
+    print_status "Internal API URLs (FastAPI direct access):"
     echo "  Docs: http://$HOST:$PORT/docs"
     echo "  Health: http://$HOST:$PORT/health"
     echo "  API: http://$HOST:$PORT/get_pipeline_info"
+    echo ""
+    print_status "External URLs (via NGINX proxy on port 8080):"
+    echo "  Docs: http://usaz15ls088:8080/pipeline-service/docs"
+    echo "  Health: http://usaz15ls088:8080/pipeline-service/health"
+    echo "  API: http://usaz15ls088:8080/pipeline-service/get_pipeline_info"
+    echo "  Dashboard: http://usaz15ls088:8080/pipeline-dashboard/"
     echo ""
     print_status "Starting server..."
     
@@ -159,6 +179,8 @@ start_app() {
     export ORACLE_USER
     export ORACLE_PASSWORD
     export ORACLE_TABLE
+    export CORS_ORIGINS
+    export CORS_ALLOW_ALL
     
     # Start the server
     if command -v uvicorn >/dev/null 2>&1; then
@@ -172,12 +194,17 @@ start_app() {
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
+    echo "Pipeline Info API Runner Script (NGINX-ready)"
+    echo "FastAPI application that works behind NGINX proxy at /pipeline-service/"
+    echo ""
     echo "Options:"
-    echo "  -h, --help     Show this help message"
-    echo "  -p, --port     Port to run on (default: 8001)"
-    echo "  --host         Host to bind to (default: 10.253.112.87)"
-    echo "  --backend      Backend type: jsonl|oracle (default: jsonl)"
-    echo "  --jsonl-path   Path to JSONL file (default: /apps/exensio_data/reference_data/benchmark/benchmark.jsonl)"
+    echo "  -h, --help          Show this help message"
+    echo "  -p, --port          Port to run on (default: 8001)"
+    echo "  --host              Host to bind to (default: 127.0.0.1)"
+    echo "  --backend           Backend type: jsonl|oracle (default: jsonl)"
+    echo "  --jsonl-path        Path to JSONL file"
+    echo "  --cors-origins      Comma-separated CORS origins (default: http://localhost:3000,http://localhost:5173,http://localhost:8080,http://usaz15ls088:8080)"
+    echo "  --cors-allow-all    Allow all CORS origins (true/false, default: false)"
     echo ""
     echo "Environment Variables:"
     echo "  HOST                  Host to bind to"
@@ -188,12 +215,20 @@ show_usage() {
     echo "  ORACLE_USER           Oracle username"
     echo "  ORACLE_PASSWORD       Oracle password"
     echo "  ORACLE_TABLE          Oracle table name"
+    echo "  CORS_ORIGINS          Comma-separated CORS origins"
+    echo "  CORS_ALLOW_ALL        Allow all CORS origins (true/false)"
     echo ""
     echo "Examples:"
-    echo "  $0                                    # Run with defaults"
+    echo "  $0                                    # Run with defaults (localhost:8001)"
     echo "  $0 -p 9000                          # Run on port 9000"
     echo "  $0 --backend oracle                 # Use Oracle backend"
-    echo "  PIPELINE_BACKEND=oracle $0          # Use Oracle via env var"
+    echo "  $0 --cors-allow-all true            # Allow all CORS origins"
+    echo "  CORS_ALLOW_ALL=true $0              # Allow all origins via env var"
+    echo ""
+    echo "With NGINX proxy, access via:"
+    echo "  http://usaz15ls088:8080/pipeline-service/docs"
+    echo "  http://usaz15ls088:8080/pipeline-service/health"
+    echo "  http://usaz15ls088:8080/pipeline-dashboard/"
 }
 
 # Parse command line arguments
@@ -219,6 +254,14 @@ while [[ $# -gt 0 ]]; do
             PIPELINE_JSONL_PATH="$2"
             shift 2
             ;;
+        --cors-origins)
+            CORS_ORIGINS="$2"
+            shift 2
+            ;;
+        --cors-allow-all)
+            CORS_ALLOW_ALL="$2"
+            shift 2
+            ;;
         *)
             print_error "Unknown option: $1"
             show_usage
@@ -229,9 +272,10 @@ done
 
 # Main execution
 main() {
-    print_status "Pipeline Info API Startup Script"
-    print_status "Created by: ejkorg"
-    print_status "Date: 2025-08-08 01:14:22 UTC"
+    print_status "Pipeline Info API Startup Script (NGINX-ready)"
+    print_status "Created by: JA Garcia"
+    print_status "Date: 2025-09-02"
+    print_status "This script configures FastAPI to work behind NGINX proxy"
     echo ""
     
     check_dependencies

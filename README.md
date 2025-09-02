@@ -7,10 +7,12 @@ Production-grade FastAPI application for storing and serving pipeline run metada
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 ```
 
-Open `http://localhost:8000/docs` for interactive API docs.
+Open `http://localhost:8001/docs` for interactive API docs.
+
+For production deployment behind NGINX proxy, access via `http://usaz15ls088:8080/pipeline-service/docs`.
 
 ## Features
 - Multi-backend storage: JSONL file or Oracle (`python-oracledb`).
@@ -23,28 +25,34 @@ Open `http://localhost:8000/docs` for interactive API docs.
 ## Configuration
 Set environment variables to select and configure the backend.
 
-- `PIPELINE_BACKEND`: `jsonl` (default) or `oracle`.
-
-When `jsonl` backend:
-- `PIPELINE_JSONL_PATH`: path to JSON Lines file (default: `pipeline_data.jsonl`).
-
-When `oracle` backend:
-- `ORACLE_DSN`: e.g., `host:port/service`.
-- `ORACLE_USER`: database username.
-- `ORACLE_PASSWORD`: database password.
-- `ORACLE_TABLE`: table name (default `PIPELINE_RUNS`).
-- `ORACLE_COLUMN_MAP`: optional JSON mapping of model field -> DB column.
-
-Example:
-```bash
-export PIPELINE_BACKEND=oracle
-export ORACLE_DSN=host:1521/ORCLPDB1
-export ORACLE_USER=app
-export ORACLE_PASSWORD=secret
-export ORACLE_TABLE=PIPELINE_RUNS
-export ORACLE_COLUMN_MAP='{"start_utc":"START_UTC","rowcount":"ROW_COUNT"}'
-uvicorn main:app --reload
-```
++- `PIPELINE_BACKEND`: `jsonl` (default) or `oracle`.
++
++When `jsonl` backend:
++- `PIPELINE_JSONL_PATH`: path to JSON Lines file (default: `pipeline_data.jsonl`).
++
++When `oracle` backend:
++- `ORACLE_DSN`: e.g., `host:port/service`.
++- `ORACLE_USER`: database username.
++- `ORACLE_PASSWORD`: database password.
++- `ORACLE_TABLE`: table name (default `PIPELINE_RUNS`).
++- `ORACLE_COLUMN_MAP`: optional JSON mapping of model field -> DB column.
++
++CORS Configuration:
++- `CORS_ORIGINS`: Comma-separated list of allowed origins (default: `http://localhost:3000,http://localhost:5173,http://localhost:8080,http://usaz15ls088:8080`).
++- `CORS_ALLOW_ALL`: Set to `true` to allow all origins (useful for development, default: `false`).
++
++Example:
++```bash
++export PIPELINE_BACKEND=oracle
++export ORACLE_DSN=host:1521/ORCLPDB1
++export ORACLE_USER=app
++export ORACLE_PASSWORD=secret
++export ORACLE_TABLE=PIPELINE_RUNS
++export ORACLE_COLUMN_MAP='{"start_utc":"START_UTC","rowcount":"ROW_COUNT"}'
++export CORS_ORIGINS='http://localhost:3000,http://myfrontend.com'
++export CORS_ALLOW_ALL=false
++uvicorn main:app --reload
++```
 
 ## Data Model
 Defined in `models.py`.
@@ -67,7 +75,7 @@ Defined in `models.py`.
 
 Example POST:
 ```bash
-curl -X POST http://127.0.0.1:8000/pipelines \
+curl -X POST http://127.0.0.1:8001/pipelines \
 	-H "Content-Type: application/json" \
 	-d @sample_record.json
 ```
@@ -93,7 +101,7 @@ pytest -q
 
 - Useful commands:
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 pip install python-oracledb
 ```
 
@@ -120,6 +128,36 @@ with conn.cursor() as cur:
 	cur.execute(sql, params)
 	conn.commit()
 ```
+
+## NGINX Proxy Configuration
+When deploying behind NGINX, use a configuration like this:
+
+```nginx
+location /pipeline-service/ {
+  proxy_pass http://usaz15ls088:8001/;   # note trailing slash
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-Prefix /pipeline-service;
+
+  # CORS headers are handled by the FastAPI app, not NGINX
+  # This allows the app to control CORS policy dynamically
+
+  proxy_connect_timeout 5s;
+  proxy_send_timeout 30s;
+  proxy_read_timeout 30s;
+}
+```
+
+The FastAPI app handles CORS headers automatically. If you need cross-origin requests, configure `CORS_ORIGINS` or set `CORS_ALLOW_ALL=true`.
+
+**Access URLs:**
+- API: `http://usaz15ls088:8080/pipeline-service/`
+- Dashboard: `http://usaz15ls088:8080/pipeline-dashboard/`
+- Docs: `http://usaz15ls088:8080/pipeline-service/docs`
 
 ## Extending the Project
 - Add a new backend: subclass `PipelineInfoRepository` in `repository.py` and implement the four methods.

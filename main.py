@@ -14,19 +14,18 @@ app = FastAPI(
     version="1.1.0"
 )
 
-# CORS configuration
-origins = [
-    "http://usaz15ls088:5173",
-    "http://usaz15ls088:3000",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
+# CORS configuration - configurable via environment
+cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://usaz15ls088:8080")
+origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+
+# Allow all origins if CORS_ALLOW_ALL is set (for development)
+allow_all_origins = os.environ.get("CORS_ALLOW_ALL", "false").lower() == "true"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"] if allow_all_origins else origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
