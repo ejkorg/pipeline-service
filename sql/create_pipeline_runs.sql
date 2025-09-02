@@ -18,6 +18,7 @@ CREATE TABLE pipeline_runs (
   script_name     VARCHAR2(255),
   pipeline_type   VARCHAR2(100),
   environment     VARCHAR2(50),
+  archived_file   VARCHAR2(1024),
   created_at      TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
 );
 
@@ -34,9 +35,9 @@ CREATE INDEX idx_pipeline_name_start_utc ON pipeline_runs(pipeline_name, start_u
 -- INSERT INTO pipeline_runs (
 --   start_local, end_local, start_utc, end_utc,
 --   elapsed_seconds, elapsed_human, output_file, rowcount, log_file,
---   pid, date_code, pipeline_name, script_name, pipeline_type, environment
+--   pid, date_code, pipeline_name, script_name, pipeline_type, environment, archived_file
 -- ) VALUES (
 --   :start_local, :end_local, :start_utc, :end_utc,
 --   :elapsed_seconds, :elapsed_human, :output_file, :rowcount, :log_file,
---   :pid, :date_code, :pipeline_name, :script_name, :pipeline_type, :environment
+--   :pid, :date_code, :pipeline_name, :script_name, :pipeline_type, :environment, :archived_file
 -- );

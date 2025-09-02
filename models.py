@@ -21,6 +21,9 @@ class PipelineInfo(BaseModel):
     script_name: Optional[str] = Field(None, description="Name of the script file (e.g., 'process_sales.py')")
     pipeline_type: Optional[str] = Field(None, description="Type of pipeline (e.g., 'batch', 'streaming', 'ml')")
     environment: Optional[str] = Field(None, description="Environment (e.g., 'prod', 'dev', 'test')")
+    
+    # New archived file field
+    archived_file: Optional[str] = Field(None, description="Path to the archived file (e.g., compressed output)")
 
     # Pydantic v2 model config
     model_config = {
@@ -42,7 +45,8 @@ class PipelineInfo(BaseModel):
                 "pipeline_name": "sales_etl",
                 "script_name": "process_sales_data.py",
                 "pipeline_type": "batch",
-                "environment": "prod"
+                "environment": "prod",
+                "archived_file": "/apps/exensio_data/archives-yms/reference_data/lot/SubconLotRefData-20250901_230701.subconLot.gz"
             }
         }
     }

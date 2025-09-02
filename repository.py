@@ -249,7 +249,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
             params["max_row"] = offset + limit
             params["min_row"] = offset
 
-    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
+        conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, params)
@@ -265,7 +265,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
         if where:
             sql += " WHERE " + " AND ".join(where)
             
-    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
+        conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, params)
@@ -289,7 +289,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
             ORDER BY last_run DESC
         """
         
-    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
+        conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql)
@@ -328,7 +328,7 @@ class OraclePipelineRepository(PipelineInfoRepository):
         bind_list = ",".join(bind_placeholders)
         sql = f"INSERT INTO {self.table} ({col_list}) VALUES ({bind_list})"
 
-    conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
+        conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
         try:
             cur = conn.cursor()
             cur.execute(sql, binds)

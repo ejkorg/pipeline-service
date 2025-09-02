@@ -19,7 +19,8 @@ SAMPLE = {
     "pipeline_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
     "script_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
     "pipeline_type": "batch",
-    "environment": "prod"
+    "environment": "prod",
+    "archived_file": "/apps/exensio_data/archives-yms/reference_data/lot/SubconLotRefData-20250901_230701.subconLot.gz"
 }
 
 
