@@ -31,22 +31,22 @@ class PipelineInfo(BaseModel):
         "from_attributes": True,
         "json_schema_extra": {
             "example": {
-                "start_local": "2025-08-08 05:07:01",
-                "end_local": "2025-08-08 05:29:07",
-                "start_utc": "2025-08-08T12:07:01Z",
-                "end_utc": "2025-08-08T12:29:07Z",
-                "elapsed_seconds": 1325.571,
-                "elapsed_human": "22m 5s",
-                "output_file": "/apps/data/pipeline/output-20250808_050701.data",
-                "rowcount": 4342,
-                "log_file": "/apps/data/pipeline/logs/job-20250808_050701.log",
-                "pid": 38298,
-                "date_code": "20250808_050701",
-                "pipeline_name": "sales_etl",
-                "script_name": "process_sales_data.py",
+                "start_local": "2025-09-02 05:07:02",
+                "end_local": "2025-09-02 05:47:27",
+                "start_utc": "2025-09-02T12:07:02Z",
+                "end_utc": "2025-09-02T12:47:27Z",
+                "elapsed_seconds": 2424.879,
+                "elapsed_human": "40m 24s",
+                "output_file": "/apps/exensio_data/reference_data/SubconLotRefData-20250902_050702.subconLot",
+                "rowcount": 11060,
+                "log_file": "/apps/exensio_data/reference_data/jag_test/log/getSubconLotRefData_LOTGDB.log",
+                "pid": 21788,
+                "date_code": "20250902_050702",
+                "pipeline_name": "subcon_lotg_to_refdb_ingest",
+                "script_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
                 "pipeline_type": "batch",
                 "environment": "prod",
-                "archived_file": "/apps/exensio_data/archives-yms/reference_data/lot/SubconLotRefData-20250901_230701.subconLot.gz"
+                "archived_file": "/apps/exensio_data/archives-yms/reference_data/lot/SubconLotRefData-20250902_050702.subconLot.gz"
             }
         }
     }
