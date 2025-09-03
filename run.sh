@@ -1,19 +1,12 @@
-#!/bin/# Configuration
-DEFAULT_HOST="127.0.0.1"  # For NGINX proxy setup
-DEFAULT_PORT="8001"       # Matches NGINX upstream pipeline-service port
-DEFAULT_BACKEND="jsonl"
-DEFAULT_JSONL_PATH="/apps/exensio_data/reference_data/benchmark/benchmark.jsonl"
-
-# CORS Configuration (for FastAPI)
-DEFAULT_CORS_ORIGINS="http://localhost:3000,http://localhost:5173"
-DEFAULT_CORS_ALLOW_ALL="false"ipeline Info API Runner Script
+#!/bin/bash
+# Pipeline Info API Runner Script
 # FastAPI application startup script
 
 set -e  # Exit on any error
 
 # Configuration
-DEFAULT_HOST="127.0.0.1"  # Changed from 10.253.112.87 for NGINX proxy setup
-DEFAULT_PORT="8001"       # Changed from 8000 to 8001 since 8000 is occupied
+DEFAULT_HOST="127.0.0.1"  # FastAPI binds to localhost for nginx proxying
+DEFAULT_PORT="8001"       # Matches NGINX upstream pipeline-service port
 DEFAULT_BACKEND="jsonl"
 DEFAULT_JSONL_PATH="/apps/exensio_data/reference_data/benchmark/benchmark.jsonl"
 
@@ -197,6 +190,9 @@ show_usage() {
     echo "Pipeline Info API Runner Script (NGINX-ready)"
     echo "FastAPI application that works behind NGINX proxy at /pipeline-service/"
     echo ""
+    echo "Note: FastAPI binds to 127.0.0.1 for nginx proxying."
+    echo "External access is via nginx proxy on usaz15ls088:8080"
+    echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message"
     echo "  -p, --port          Port to run on (default: 8001)"
@@ -219,13 +215,13 @@ show_usage() {
     echo "  CORS_ALLOW_ALL        Allow all CORS origins (true/false)"
     echo ""
     echo "Examples:"
-    echo "  $0                                    # Run with defaults (localhost:8001)"
+    echo "  $0                                    # Run with defaults (binds to 127.0.0.1:8001)"
     echo "  $0 -p 9000                          # Run on port 9000"
     echo "  $0 --backend oracle                 # Use Oracle backend"
     echo "  $0 --cors-allow-all true            # Allow all CORS origins"
     echo "  CORS_ALLOW_ALL=true $0              # Allow all origins via env var"
     echo ""
-    echo "With NGINX proxy, access via:"
+    echo "External access via NGINX proxy:"
     echo "  http://usaz15ls088:8080/pipeline-service/docs"
     echo "  http://usaz15ls088:8080/pipeline-service/health"
     echo "  http://usaz15ls088:8080/pipeline-dashboard/"
