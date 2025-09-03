@@ -60,7 +60,7 @@ Endpoints (core):
 
 Design principles:
 - Explicit query params for filters (discoverable in OpenAPI docs).
-- Safe pagination (limit bounds 1–1000).
+- Safe pagination (limit bounds 1–10000).
 - Optional `all_data` flag for full export (consider server limits to prevent abuse).
 
 Potential addition: `/download/pipeline_info` for direct CSV/JSONL export (see Enhancements).
