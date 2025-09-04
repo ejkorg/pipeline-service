@@ -10,7 +10,7 @@ from pathlib import Path
 from models import PipelineInfo, PipelineInfoResponse, PipelineListResponse
 from repository import get_repository
 
-app = FastAPI(
+api_app = FastAPI(
     title="Pipeline Info API",
     description="Production-grade FastAPI app for serving pipeline information with multi-pipeline support.",
     version="1.1.0"
@@ -23,7 +23,7 @@ origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip(
 # Allow all origins if CORS_ALLOW_ALL is set (for development)
 allow_all_origins = os.environ.get("CORS_ALLOW_ALL", "false").lower() == "true"
 
-app.add_middleware(
+api_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if allow_all_origins else origins,
     allow_credentials=True,
@@ -45,7 +45,7 @@ except Exception as e:
 MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", 50))
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-@app.get("/pipelines", response_model=PipelineListResponse)
+@api_app.get("/pipelines", response_model=PipelineListResponse)
 def list_pipelines():
     """
     Get a summary of all pipelines with statistics.
@@ -62,7 +62,7 @@ def list_pipelines():
         print(f"[ERROR] Error getting pipeline summaries: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/get_pipeline_info", response_model=PipelineInfoResponse, response_class=JSONResponse)
+@api_app.get("/get_pipeline_info", response_model=PipelineInfoResponse, response_class=JSONResponse)
 def get_pipeline_info(
     start_utc: Optional[datetime] = Query(None, description="Filter by start UTC (>=). Format: YYYY-MM-DDTHH:MM:SSZ"),
     end_utc: Optional[datetime] = Query(None, description="Filter by end UTC (<=). Format: YYYY-MM-DDTHH:MM:SSZ"),
@@ -133,7 +133,7 @@ def get_pipeline_info(
         print(f"[ERROR] Unexpected error in get_pipeline_info: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/", include_in_schema=False)
+@api_app.get("/", include_in_schema=False)
 def root():
     return {
         "message": "Welcome to the Pipeline Info API with multi-pipeline support. See /docs for usage.",
@@ -142,13 +142,13 @@ def root():
         "features": ["multi-pipeline", "filtering", "pagination", "statistics"]
     }
 
-@app.get("/health")
+@api_app.get("/health")
 def health():
     """Simple health check endpoint"""
     return {"status": "healthy", "backend": DATA_BACKEND, "version": "1.1.0"}
 
 
-@app.get("/pipelines/archived/{date_code}")
+@api_app.get("/pipelines/archived/{date_code}")
 async def get_archived_file(date_code: str):
     """
     Stream the archived_file for a pipeline record by date_code.
@@ -242,7 +242,7 @@ async def get_archived_file(date_code: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/pipelines", response_model=PipelineInfo, status_code=status.HTTP_201_CREATED)
+@api_app.post("/pipelines", response_model=PipelineInfo, status_code=status.HTTP_201_CREATED)
 def create_pipeline(record: PipelineInfo):
     """Insert a single pipeline record into the configured backend.
 
@@ -254,105 +254,6 @@ def create_pipeline(record: PipelineInfo):
     except Exception as e:
         print(f"[ERROR] Failed to insert pipeline record: {e}")
         raise HTTPException(status_code=500, detail="Failed to insert record")
-# from fastapi import FastAPI, HTTPException, Query
-# from fastapi.responses import JSONResponse
-# from typing import Optional
-# from fastapi.middleware.cors import CORSMiddleware
-# import os
 
-# from models import PipelineInfo, PipelineInfoResponse
-# from repository import get_repository
-
-# app = FastAPI(
-#     title="Pipeline Info API",
-#     description="FastAPI app for serving pipeline information from a .jsonl file or Oracle database.",
-#     version="1.0.0"
-# )
-
-# # CORS configuration
-# origins = [
-#     "http://usaz15ls088:5173",
-#     "http://usaz15ls088:3000",
-#     "http://localhost:5173",  # Common local dev
-#     "http://localhost:3000",  # Common local dev
-# ]
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=origins,
-#     allow_credentials=True,
-#     allow_methods=["GET", "POST", "OPTIONS"],
-#     allow_headers=["*"],
-# )
-
-# # Choose data source via env var: 'jsonl' or 'oracle'
-# DATA_BACKEND = os.environ.get("PIPELINE_BACKEND", "jsonl").lower()
-
-# try:
-#     REPO = get_repository(DATA_BACKEND)
-#     print(f"[INFO] Initialized {DATA_BACKEND} repository successfully")
-# except Exception as e:
-#     print(f"[ERROR] Failed to initialize {DATA_BACKEND} repository: {e}")
-#     raise
-
-# @app.get("/get_pipeline_info", response_model=PipelineInfoResponse, response_class=JSONResponse)
-# def get_pipeline_info(
-#     start_utc: Optional[str] = Query(None, description="Filter by start UTC (>=). Format: YYYY-MM-DDTHH:MM:SSZ"),
-#     end_utc: Optional[str] = Query(None, description="Filter by end UTC (<=). Format: YYYY-MM-DDTHH:MM:SSZ"),
-#     min_rowcount: Optional[int] = Query(None, description="Filter by minimum row count"),
-#     max_rowcount: Optional[int] = Query(None, description="Filter by maximum row count"),
-#     limit: int = Query(100, ge=1, le=1000, description="Maximum records to return (1-1000)"),
-#     offset: int = Query(0, ge=0, description="Records to skip for pagination"),
-#     all_data: bool = Query(False, description="Return all matching data (ignores limit/offset)")
-# ):
-#     """
-#     Get pipeline information with filtering and pagination.
-    
-#     Returns pipeline job execution data with support for:
-#     - Time range filtering (start_utc, end_utc)
-#     - Row count filtering (min_rowcount, max_rowcount) 
-#     - Pagination (limit, offset)
-#     - Full data export (all_data=true)
-#     """
-#     try:
-#         data = REPO.get_pipeline_info(
-#             start_utc=start_utc,
-#             end_utc=end_utc,
-#             min_rowcount=min_rowcount,
-#             max_rowcount=max_rowcount,
-#             limit=None if all_data else limit,
-#             offset=0 if all_data else offset
-#         )
-        
-#         total = REPO.count_pipeline_info(
-#             start_utc=start_utc,
-#             end_utc=end_utc,
-#             min_rowcount=min_rowcount,
-#             max_rowcount=max_rowcount
-#         ) if not all_data else len(data)
-        
-#         return PipelineInfoResponse(
-#             total=total,
-#             count=len(data),
-#             results=data
-#         )
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
-#     except FileNotFoundError as e:
-#         raise HTTPException(status_code=404, detail=f"Data file not found: {str(e)}")
-#     except Exception as e:
-#         print(f"[ERROR] Unexpected error in get_pipeline_info: {e}")
-#         raise HTTPException(status_code=500, detail="Internal server error")
-
-# @app.get("/", include_in_schema=False)
-# def root():
-#     return {
-#         "message": "Welcome to the Pipeline Info API. See /docs for usage.",
-#         "version": "2.0.0",
-#         "backend": DATA_BACKEND
-#     }
-
-# @app.get("/health")
-# def health():
-#     """Simple health check endpoint"""
-#     return {"status": "healthy", "backend": DATA_BACKEND}
+main_app = FastAPI()
+main_app.mount("/pipeline-service", api_app)
