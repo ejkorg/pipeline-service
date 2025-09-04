@@ -72,7 +72,7 @@ def get_pipeline_info(
     script_name: Optional[str] = Query(None, description="Filter by script name"),
     pipeline_type: Optional[str] = Query(None, description="Filter by pipeline type (batch, streaming, ml)"),
     environment: Optional[str] = Query(None, description="Filter by environment (prod, dev, test)"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum records to return (1-1000)"),
+    limit: int = Query(100, ge=1, le=10000, description="Maximum records to return (1-10000)"),
     offset: int = Query(0, ge=0, description="Records to skip for pagination"),
     all_data: bool = Query(False, description="Return all matching data (ignores limit/offset)")
 ):

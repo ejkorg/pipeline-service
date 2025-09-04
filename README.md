@@ -71,7 +71,7 @@ Defined in `models.py`.
 		- `start_utc`, `end_utc` (ISO datetimes)
 		- `min_rowcount`, `max_rowcount` (ints)
 		- `pipeline_name`, `script_name`, `pipeline_type`, `environment`
-		- `limit` (1–1000), `offset` (>=0)
+		- `limit` (1–10000), `offset` (>=0)
 		- `all_data` (bool) — if true, ignores pagination
 - `POST /pipelines`: insert a run (body must match `PipelineInfo`).
 - `GET /pipelines/archived/{date_code}`: stream archived file for a pipeline record.
