@@ -165,6 +165,10 @@ async def get_archived_file(date_code: str):
         if not record or not record.archived_file:
             raise HTTPException(status_code=404, detail="Pipeline record or archived file not found")
         
+        # Store the original archived file path for filename extraction
+        original_archived_path = Path(record.archived_file)
+        
+        # Use the actual file path for reading (might be different if file was moved/copied)
         file_path = Path(record.archived_file)
         if not file_path.is_file():
             raise HTTPException(status_code=404, detail="Archived file not found on disk")
@@ -175,10 +179,29 @@ async def get_archived_file(date_code: str):
         
         file_size = file_path.stat().st_size
         
-        # Detect MIME type based on file extension
-        mime_type, _ = mimetypes.guess_type(str(file_path))
+        # Extract filename from the original archived_file path in the database record
+        # This ensures we use the original filename, not the filesystem name
+        download_filename = original_archived_path.name
+        
+        # Clean up the filename - remove .tmp extension if present
+        # This handles cases where files are processed and temporarily renamed
+        if download_filename.endswith('.tmp'):
+            download_filename = download_filename[:-4]  # Remove .tmp
+        elif download_filename.endswith('.gz.tmp'):
+            download_filename = download_filename[:-8] + '.gz'  # Remove .tmp but keep .gz
+        
+        # Detect MIME type based on the cleaned filename
+        mime_type, encoding = mimetypes.guess_type(download_filename)
         if mime_type is None:
-            mime_type = "application/octet-stream"  # Default for unknown types
+            # Handle compressed files that return None for mime_type
+            if encoding == 'gzip':
+                mime_type = "application/gzip"
+            elif encoding == 'bzip2':
+                mime_type = "application/x-bzip2"
+            elif encoding == 'compress':
+                mime_type = "application/x-compress"
+            else:
+                mime_type = "application/octet-stream"  # Default for unknown types
         
         # Determine disposition based on size and type
         if file_size > MAX_FILE_SIZE_BYTES:
@@ -207,7 +230,7 @@ async def get_archived_file(date_code: str):
             file_generator(),
             media_type=mime_type,
             headers={
-                "Content-Disposition": f'{disposition}; filename="{file_path.name}"',
+                "Content-Disposition": f'{disposition}; filename="{download_filename}"',
                 "Content-Length": str(file_size),
                 "Cache-Control": "private, max-age=300",  # Short cache for dynamic content
             }
