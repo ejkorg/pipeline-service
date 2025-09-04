@@ -24,6 +24,10 @@ class PipelineInfoRepository:
         """Insert a single PipelineInfo record into the backend."""
         raise NotImplementedError
 
+    def get_pipeline_info_by_date_code(self, date_code: str) -> Optional[PipelineInfo]:
+        """Fetch a single PipelineInfo record by date_code for secure file serving."""
+        raise NotImplementedError
+
 class JsonlPipelineRepository(PipelineInfoRepository):
     def __init__(self):
         self.filepath = os.environ.get("PIPELINE_JSONL_PATH", "pipeline_data.jsonl")
@@ -163,6 +167,13 @@ class JsonlPipelineRepository(PipelineInfoRepository):
 
         with open(self.filepath, 'a', encoding='utf-8') as f:
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
+
+    def get_pipeline_info_by_date_code(self, date_code: str) -> Optional[PipelineInfo]:
+        data = self._read_all()
+        for record in data:
+            if record.date_code == date_code:
+                return record
+        return None
 
 class OraclePipelineRepository(PipelineInfoRepository):
     def __init__(self):
@@ -333,6 +344,20 @@ class OraclePipelineRepository(PipelineInfoRepository):
             cur = conn.cursor()
             cur.execute(sql, binds)
             conn.commit()
+        finally:
+            conn.close()
+
+    def get_pipeline_info_by_date_code(self, date_code: str) -> Optional[PipelineInfo]:
+        sql = f"SELECT * FROM {self.table} WHERE date_code = :date_code"
+        conn = self._driver.connect(user=self.user, password=self.password, dsn=self.dsn)
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, {"date_code": date_code})
+            row = cur.fetchone()
+            if row:
+                cols = [c[0].lower() for c in cur.description]
+                return PipelineInfo(**dict(zip(cols, row)))
+            return None
         finally:
             conn.close()
 # import os

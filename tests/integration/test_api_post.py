@@ -57,3 +57,48 @@ def test_post_pipeline_inserts_jsonl(monkeypatch):
     loaded = read_jsonl(repo.filepath)
     assert len(loaded) == 1
     os.remove(repo.filepath)
+
+
+def test_get_archived_file(monkeypatch):
+    # Ensure repo root is importable
+    repo_root = str(Path(__file__).resolve().parents[2])
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+    main_module = importlib.import_module('main')
+    from fastapi.testclient import TestClient
+    from repository import JsonlPipelineRepository
+    from models import PipelineInfo
+
+    client = TestClient(main_module.app)
+
+    repo = JsonlPipelineRepository()
+    ntf = NamedTemporaryFile(delete=False)
+    repo.filepath = ntf.name
+    ntf.close()
+
+    # Monkeypatch global REPO in main
+    monkeypatch.setattr(main_module, 'REPO', repo)
+
+    # Create a mock record with archived_file
+    mock_record = PipelineInfo(**SAMPLE)
+    
+    # Create a temp file to simulate archived_file (text file for inline viewing)
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
+        tmp.write(b"mock text content")
+        tmp_path = tmp.name
+    
+    mock_record.archived_file = tmp_path
+    
+    # Mock the get_pipeline_info_by_date_code method
+    monkeypatch.setattr(repo, 'get_pipeline_info_by_date_code', lambda dc: mock_record if dc == SAMPLE['date_code'] else None)
+    
+    resp = client.get(f"/pipelines/archived/{SAMPLE['date_code']}")
+    assert resp.status_code == 200
+    assert resp.headers["Content-Disposition"].startswith("inline")  # Text file should be inline
+    assert resp.headers["Content-Type"].startswith("text/plain")  # MIME type includes charset
+    assert resp.content == b"mock text content"
+    
+    os.unlink(tmp_path)
+    os.remove(repo.filepath)

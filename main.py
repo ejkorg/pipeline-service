@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import mimetypes
 from datetime import datetime
+from pathlib import Path
 
 from models import PipelineInfo, PipelineInfoResponse, PipelineListResponse
 from repository import get_repository
@@ -38,6 +40,10 @@ try:
 except Exception as e:
     print(f"[ERROR] Failed to initialize {DATA_BACKEND} repository: {e}")
     raise
+
+# Configurable max file size for viewing/download (in MB)
+MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", 50))
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 @app.get("/pipelines", response_model=PipelineListResponse)
 def list_pipelines():
@@ -140,6 +146,77 @@ def root():
 def health():
     """Simple health check endpoint"""
     return {"status": "healthy", "backend": DATA_BACKEND, "version": "1.1.0"}
+
+
+@app.get("/pipelines/archived/{date_code}")
+async def get_archived_file(date_code: str):
+    """
+    Stream the archived_file for a pipeline record by date_code.
+    
+    - Detects file type and sets appropriate MIME type
+    - If file size <= MAX_FILE_SIZE_MB, allows inline viewing (if browser supports)
+    - If file size > MAX_FILE_SIZE_MB, forces download
+    - Returns 404 if record or file not found
+    - Production-grade: streams in chunks for scalability
+    """
+    try:
+        # Securely fetch record by date_code
+        record = REPO.get_pipeline_info_by_date_code(date_code)
+        if not record or not record.archived_file:
+            raise HTTPException(status_code=404, detail="Pipeline record or archived file not found")
+        
+        file_path = Path(record.archived_file)
+        if not file_path.is_file():
+            raise HTTPException(status_code=404, detail="Archived file not found on disk")
+        
+        # Security: Prevent path traversal
+        if ".." in str(file_path) or not file_path.is_absolute():
+            raise HTTPException(status_code=403, detail="Invalid file path")
+        
+        file_size = file_path.stat().st_size
+        
+        # Detect MIME type based on file extension
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        if mime_type is None:
+            mime_type = "application/octet-stream"  # Default for unknown types
+        
+        # Determine disposition based on size and type
+        if file_size > MAX_FILE_SIZE_BYTES:
+            disposition = "attachment"
+        else:
+            # For known safe types, allow inline; otherwise force download
+            safe_types = ["text/", "image/", "application/json", "application/xml"]
+            if any(mime_type.startswith(safe) for safe in safe_types):
+                disposition = "inline"
+            else:
+                disposition = "attachment"
+        
+        # Import aiofiles here to avoid import errors if not installed
+        try:
+            import aiofiles
+        except ImportError:
+            raise HTTPException(status_code=500, detail="aiofiles package required for file streaming")
+        
+        async def file_generator():
+            async with aiofiles.open(file_path, "rb") as f:
+                chunk_size = 64 * 1024  # 64KB chunks
+                while chunk := await f.read(chunk_size):
+                    yield chunk
+        
+        return StreamingResponse(
+            file_generator(),
+            media_type=mime_type,
+            headers={
+                "Content-Disposition": f'{disposition}; filename="{file_path.name}"',
+                "Content-Length": str(file_size),
+                "Cache-Control": "private, max-age=300",  # Short cache for dynamic content
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to serve archived file for {date_code}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/pipelines", response_model=PipelineInfo, status_code=status.HTTP_201_CREATED)

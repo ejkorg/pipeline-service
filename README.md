@@ -40,6 +40,9 @@ Set environment variables to select and configure the backend.
 +CORS Configuration:
 +- `CORS_ORIGINS`: Comma-separated list of allowed origins (default: `http://localhost:3000,http://localhost:5173,http://localhost:8080,http://usaz15ls088:8080`).
 +- `CORS_ALLOW_ALL`: Set to `true` to allow all origins (useful for development, default: `false`).
+
+File Serving Configuration:
++- `MAX_FILE_SIZE_MB`: Maximum file size for inline viewing (default: `50`). Files larger than this will force download.
 +
 +Example:
 +```bash
@@ -71,6 +74,12 @@ Defined in `models.py`.
 		- `limit` (1–1000), `offset` (>=0)
 		- `all_data` (bool) — if true, ignores pagination
 - `POST /pipelines`: insert a run (body must match `PipelineInfo`).
+- `GET /pipelines/archived/{date_code}`: stream archived file for a pipeline record.
+	- Path param: `date_code` (unique identifier from pipeline record)
+	- Automatically detects file type and sets appropriate MIME type
+	- Files ≤ 50MB (configurable) allow inline viewing if browser supports
+	- Files > 50MB force download
+	- Returns 404 if record or file not found
 - `GET /health`: health check.
 
 Example POST:
@@ -78,6 +87,15 @@ Example POST:
 curl -X POST http://127.0.0.1:8001/pipelines \
 	-H "Content-Type: application/json" \
 	-d @sample_record.json
+```
+
+Example GET archived file:
+```bash
+# Download archived file for a specific pipeline run
+curl -O http://127.0.0.1:8001/pipelines/archived/20250902_050702
+
+# Or view in browser (if file type is supported and size <= 50MB)
+open http://127.0.0.1:8001/pipelines/archived/20250902_050702
 ```
 
 ## Storage Backends
